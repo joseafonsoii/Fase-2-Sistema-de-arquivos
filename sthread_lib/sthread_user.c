@@ -14,14 +14,17 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-
 #include <sthread.h>
 #include <sthread_user.h>
 #include <sthread_ctx.h>
 #include <sthread_time_slice.h>
-#include <sthread_user.h>
+
 #include "queue.h"
 
+/*Definindo as constantes*/
+#define  QUANTUM_BASE 5
+#define MAX_PRIORIDADES 15
+#define PRIORIDADE_FIXA 4 
 
 struct _sthread {
   sthread_ctx_t *saved_ctx;
@@ -31,6 +34,15 @@ struct _sthread {
   void* join_ret;
   void* args;
   int tid;          /* meramente informativo */
+
+    // >>> Variáveis necessárias para o novo escalonador
+    int prioridade_base;     // define o valor fixo da prioridade da thread
+    int prioridade_atual;    // muda entre épocas, se for dinâmica
+    int quantum;             // tempo restante até precisar trocar de época
+    int nice;                // valor definido pelo utilizador
+    int prioridade_fixa;     // 1 se for fixa (prioridade 0–4), 0 se for dinâmica (5–14)
+
+    struct _sthread* next;
 };
 
 
@@ -43,7 +55,8 @@ static struct _sthread *active_thr;   /* thread activa */
 static int tid_gen;                   /* gerador de tid's */
 
 
-#define CLOCK_TICK 10000
+
+#define CLOCK_TICK 100
 static long Clock;
 
 
@@ -51,6 +64,31 @@ static long Clock;
 /* Part 1: Creating and Scheduling Threads                           */
 /*********************************************************************/
 
+// Fila por prioridade (lista encadeada FIFO)
+typedef struct {
+    struct _sthread *head;
+    struct _sthread *tail;
+} sthread_queue_t;
+
+// Runqueue completa (15 filas: 0–14)
+typedef struct {
+    sthread_queue_t fila[MAX_PRIORIDADES];
+} sthread_runqueue_t;
+
+// Escalonador global (ativas + expiradas)
+static sthread_runqueue_t *active_rq;
+static sthread_runqueue_t *expired_rq;
+
+
+void insert_in_runquee(sthread_queue_t *fila, struct _sthread *thread) {
+    thread->next = NULL;
+    if (fila->tail) {
+        fila->tail->next = thread;
+        fila->tail = thread;
+    } else {
+        fila->head = fila->tail = thread;
+    }
+}
 
 void sthread_user_free(struct _sthread *thread);
 
@@ -79,6 +117,13 @@ void sthread_user_init(void) {
   main_thread->join_tid = 0;
   main_thread->join_ret = NULL;
   main_thread->tid = tid_gen++;
+
+   active_rq = malloc(sizeof(sthread_runqueue_t));
+   expired_rq = malloc(sizeof(sthread_runqueue_t));
+   for (int i = 0; i < MAX_PRIORIDADES; i++) {
+    active_rq->fila[i].head = active_rq->fila[i].tail = NULL;
+    expired_rq->fila[i].head = expired_rq->fila[i].tail = NULL;
+}
   
   active_thr = main_thread;
 
@@ -87,23 +132,170 @@ void sthread_user_init(void) {
 }
 
 
-sthread_t sthread_user_create(sthread_start_func_t start_routine, void *arg)
-{
-  struct _sthread *new_thread = (struct _sthread*)malloc(sizeof(struct _sthread));
-  sthread_ctx_start_func_t func = sthread_aux_start;
-  new_thread->args = arg;
-  new_thread->start_routine_ptr = start_routine;
-  new_thread->wake_time = 0;
-  new_thread->join_tid = 0;
-  new_thread->join_ret = NULL;
-  new_thread->saved_ctx = sthread_new_ctx(func);
-  
+sthread_t sthread_user_create(sthread_start_func_t start_routine, void *arg, int priority) {
+    // Validação da prioridade
+    if (priority < 0 || priority >= MAX_PRIORIDADES) {
+        fprintf(stderr, "Invalid priority: %d (must be between 0 and %d)\n", 
+                priority, MAX_PRIORIDADES - 1);
+        return NULL;
+    }
+
+    // Aloca e inicializa a nova thread
+    struct _sthread *new_thread = malloc(sizeof(struct _sthread));
+    if (!new_thread) {
+        perror("malloc error");
+        return NULL;
+    }
+
+    // Contexto de arranque (primeiro contexto que chama sthread_aux_start)
+    sthread_ctx_start_func_t func = sthread_aux_start;
+    new_thread->saved_ctx = sthread_new_ctx(func);
+
+    // Preenche os campos herdados
+    new_thread->start_routine_ptr = start_routine;
+    new_thread->args             = arg;
+    new_thread->wake_time        = 0;
+    new_thread->join_tid         = 0;
+    new_thread->join_ret         = NULL;
+
+    // Atribui o TID
+    new_thread->tid = tid_gen++;
+
+    // >>> Preenche os campos do novo escalonador
+    new_thread->prioridade_base  = priority;
+    new_thread->prioridade_atual = priority;
+    new_thread->nice             = 0;
+    new_thread->quantum          = QUANTUM_BASE;
+    new_thread->prioridade_fixa  = (priority <= PRIORIDADE_FIXA) ? 1 : 0;
+    new_thread->next             = NULL;
+
+    // Insere na runqueue ativa correspondente
+    // (assumindo que active_rq já foi inicializado em sthread_user_init)
+    insert_in_runquee(&active_rq->fila[priority], new_thread);
   splx(HIGH);
   new_thread->tid = tid_gen++;
   queue_insert(exe_thr_list, new_thread);
   splx(LOW);
   return new_thread;
+
+
+    return new_thread;
 }
+
+int set_user_Id() {
+    return active_thr->tid;
+}
+
+int sthread_user_nice(int new_nice){
+   if(new_nice < 0 || new_nice > 10){
+      fprintf(stderr,"ERROR:Nice value(%d) invalid. The nice value should be between 0 and 10\n", new_nice);
+      return -1;
+   }
+
+   struct _sthread *t = active_thr;
+
+   if (t->prioridade_fixa) {
+       return t->prioridade_atual;
+   }
+
+   t->nice = new_nice;
+
+   int nova_prioridade = t->prioridade_base + t->nice;
+
+   if (nova_prioridade < 5) nova_prioridade = 5;
+   if (nova_prioridade > 14) nova_prioridade = 14;
+
+   return nova_prioridade;
+}
+
+
+void sthread_user_dump() {
+    printf("=== dump start ===\n");
+
+    // Thread ativa
+    if (active_thr != NULL) {
+        printf("active thread\n");
+        printf("id: %d\n", active_thr->tid);
+        printf("priority: %d\n", active_thr->prioridade_atual);
+        printf("quantum: %d\n", active_thr->quantum);
+    }
+
+    // Runqueue ativa
+    printf("active runqueue\n");
+    for (int i = 0; i < MAX_PRIORIDADES; i++) {
+        printf("[%d]", i);
+        struct _sthread *t = active_rq->fila[i].head;
+        while (t) {
+            printf(" %d,%d", t->tid, t->quantum);
+            t = t->next;
+        }
+        printf("\n");
+    }
+
+    // Runqueue expirada
+    printf("expired runqueue\n");
+    for (int i = 0; i < MAX_PRIORIDADES; i++) {
+        printf("[%d]", i);
+        struct _sthread *t = expired_rq->fila[i].head;
+        while (t) {
+            printf(" %d,%d", t->tid, t->quantum);
+            t = t->next;
+        }
+        printf("\n");
+    }
+
+    // Lista de bloqueadas (sleep_thr_list + threads em monitores)
+    printf("blocked list\n");
+
+    // Lista de espera por "sleep"
+    queue_element_t *qe = sleep_thr_list->first;
+    while (qe) {
+        printf("%d,%d ", qe->thread->tid, qe->thread->quantum);
+        qe = qe->next;
+    }
+
+    
+
+    printf("\n=== dump end ===\n");
+}
+
+
+struct _sthread *sthread_user_schedule(void) {
+    for (int i = 0; i < MAX_PRIORIDADES; i++) {
+        if (active_rq->fila[i].head != NULL) {
+            struct _sthread *t = active_rq->fila[i].head;
+            // Remove da fila ativa
+            active_rq->fila[i].head = t->next;
+            if (active_rq->fila[i].head == NULL)
+                active_rq->fila[i].tail = NULL;
+            t->next = NULL;
+            return t;
+        }
+    }
+
+    // Se não há threads na ativa, trocamos com a expiradas
+    sthread_runqueue_t *tmp = active_rq;
+    active_rq = expired_rq;
+    expired_rq = tmp;
+
+    // Tenta novamente com nova fila ativa
+    for (int i = 0; i < MAX_PRIORIDADES; i++) {
+        if (active_rq->fila[i].head != NULL) {
+            struct _sthread *t = active_rq->fila[i].head;
+            active_rq->fila[i].head = t->next;
+            if (active_rq->fila[i].head == NULL)
+                active_rq->fila[i].tail = NULL;
+            t->next = NULL;
+            return t;
+        }
+    }
+
+    // Se ainda não há nenhuma thread, retorna NULL
+    return NULL;
+}
+
+
+
 
 
 void sthread_user_exit(void *ret) {
@@ -116,8 +308,7 @@ void sthread_user_exit(void *ret) {
    while (!queue_is_empty(join_thr_list)) {
       struct _sthread *thread = queue_remove(join_thr_list);
      
-      //printf("Test join list: join_tid=%d, active->tid=%d\n", thread->join_tid, active_thr->tid);
-
+      printf("Test join list: join_tid=%d, active->tid=%d\n", thread->join_tid, active_thr->tid);
       if (thread->join_tid == active_thr->tid) {
          thread->join_ret = ret;
          queue_insert(exe_thr_list,thread);
@@ -147,7 +338,8 @@ void sthread_user_exit(void *ret) {
   
    // remove from exec list
    struct _sthread *old_thr = active_thr;
-   active_thr = queue_remove(exe_thr_list);
+   active_thr = sthread_schedule();
+   //active_thr = queue_remove(exe_thr_list);
    sthread_switch(old_thr->saved_ctx, active_thr->saved_ctx);
 
    splx(LOW);
@@ -157,6 +349,7 @@ void sthread_user_exit(void *ret) {
 void sthread_user_dispatcher(void)
 {
    Clock++;
+
    queue_t *tmp_queue = create_queue();   
 
    while (!queue_is_empty(sleep_thr_list)) {
@@ -182,11 +375,11 @@ void sthread_user_yield(void)
   struct _sthread *old_thr;
   old_thr = active_thr;
   queue_insert(exe_thr_list, old_thr);
-  active_thr = queue_remove(exe_thr_list);
+  active_thr = sthread_schedule();
+  //active_thr = queue_remove(exe_thr_list);
   sthread_switch(old_thr->saved_ctx, active_thr->saved_ctx);
   splx(LOW);
 }
-
 
 
 
@@ -229,7 +422,7 @@ int sthread_user_join(sthread_t thread, void **value_ptr)
          queue_insert(dead_thr_list,thread);
          found = 1;
       } else {
-         queue_insert(tmp_queue,thread);
+         queue_insert(tmp_queue,zthread);
       }
    }
    delete_queue(zombie_thr_list);
@@ -252,7 +445,7 @@ int sthread_user_join(sthread_t thread, void **value_ptr)
    qe = exe_thr_list->first;
    while (!found && qe != NULL) {
       if (qe->thread->tid == thread->tid) {
-         //printf("Found in exe: tid=%d\n", thread->tid);
+         printf("Found in exe: tid=%d\n", thread->tid);
          found = 1;
       }
       qe = qe->next;
@@ -285,9 +478,10 @@ int sthread_user_join(sthread_t thread, void **value_ptr)
       
       struct _sthread *old_thr = active_thr;
       queue_insert(join_thr_list, old_thr);
-      active_thr = queue_remove(exe_thr_list);
-      //printf ("Active is 0:%d\n", (active_thr == NULL));
-      //printf ("Old is 0:%d\n", (old_thr == NULL));
+      active_thr = sthread_schedule();
+      //active_thr = queue_remove(exe_thr_list);
+      printf ("Active is 0:%d\n", (active_thr == NULL));
+      printf ("Old is 0:%d\n", (old_thr == NULL));
       sthread_switch(old_thr->saved_ctx, active_thr->saved_ctx);
   
       *value_ptr = thread->join_ret;
@@ -483,24 +677,7 @@ void sthread_user_monitor_signal(sthread_mon_t mon)
   atomic_clear(&(mon->mutex->l));
 }
 
-void sthread_user_monitor_signalall(sthread_mon_t mon)
-{
-  struct _sthread *temp;
 
-  if(mon->mutex->thr != active_thr){
-    printf("monitor signalall called outside monitor\n");
-    //printf("tid: %p\n", mon->mutex->thr);
-    return;
-  }
-
-  while(atomic_test_and_set(&(mon->mutex->l))) {}
-  while(!queue_is_empty(mon->queue)){
-    /* changes blocking queue for thread */
-    temp = queue_remove(mon->queue);
-    queue_insert(mon->mutex->queue, temp);
-  }
-  atomic_clear(&(mon->mutex->l));
-}
 
 
 /* The following functions are dummies to 
@@ -543,9 +720,9 @@ void sthread_dummy_monitor_signal(sthread_mon_t mon)
 {
    printf("WARNING: pthreads do not include monitors!\n");
 }
-
-void sthread_dummy_monitor_signalall(sthread_mon_t mon)
-{
-   printf("WARNING: pthreads do not include monitors!\n");
+int sthread_get_tid(struct _sthread *thr) {
+    return thr->tid;
 }
+
+
 

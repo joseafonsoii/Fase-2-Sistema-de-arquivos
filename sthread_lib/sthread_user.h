@@ -10,7 +10,7 @@
 
 /* Basic Threads */
 void sthread_user_init(void);
-sthread_t sthread_user_create(sthread_start_func_t start_routine, void *arg);
+sthread_t sthread_user_create(sthread_start_func_t start_routine, void *arg,int priority);
 void sthread_user_exit(void *ret);
 void sthread_user_yield(void);
 
@@ -18,6 +18,8 @@ void sthread_user_yield(void);
 int sthread_user_sleep(int time);
 int sthread_user_join(sthread_t thread, void **value_ptr);
 
+int sthread_user_nice(int new_nice);
+int set_user_Id();
 
 /* Synchronization Primitives */
 sthread_mutex_t sthread_user_mutex_init(void);
@@ -31,7 +33,11 @@ void sthread_user_monitor_enter(sthread_mon_t mon);
 void sthread_user_monitor_exit(sthread_mon_t mon);
 void sthread_user_monitor_wait(sthread_mon_t mon);
 void sthread_user_monitor_signal(sthread_mon_t mon);
-void sthread_user_monitor_signalall(sthread_mon_t mon);
+
+/*New functions to be implemented in the library */
+void sthread_user_dump();
+int sthread_user_nice(int nice);
+struct _sthread *sthread_user_schedule(void);
 
 
 #endif /* STHREAD_USER_H */

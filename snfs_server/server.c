@@ -289,7 +289,7 @@ int main(int argc, char **argv)
 
 	// create thread_consumer threads
 	for(i = 0; i < NUM_TC; i++) {
-		threads[i] = sthread_create(thread_consumer, (void*) NULL);
+		threads[i] = sthread_create(thread_consumer, (void*) NULL,2);
 		if (threads[i] == NULL) {
 			printf("Error while creating threads. Terminating...\n");
 			exit(-1);
@@ -297,7 +297,7 @@ int main(int argc, char **argv)
 	}
 	
 	// create producer thread
-	aux = sthread_create(thread_producer, (void*) NULL);
+	aux = sthread_create(thread_producer, (void*) NULL,2);
 	
 	
 	sthread_join(aux, (void**)NULL);

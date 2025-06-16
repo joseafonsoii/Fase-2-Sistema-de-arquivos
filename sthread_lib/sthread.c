@@ -25,10 +25,10 @@ void sthread_init(void) {
   IMPL_CHOOSE(sthread_pthread_init(), sthread_user_init());
 }
 
-sthread_t sthread_create(sthread_start_func_t start_routine, void *arg) {
+sthread_t sthread_create(sthread_start_func_t start_routine, void *arg,int priority) {
   sthread_t newth;
   IMPL_CHOOSE(newth = sthread_pthread_create(start_routine, arg),
-	      newth = sthread_user_create(start_routine, arg));
+	      newth = sthread_user_create(start_routine, arg,priority));
   return newth;
 }
 
@@ -51,7 +51,17 @@ int sthread_join(sthread_t thread, void **value_ptr) {
 /**********************************************************************/
 /* Synchronization Primitives: Mutexs and Condition Variables         */
 /**********************************************************************/
+int sthread_nice(int nice){
+  sthread_user_nice(nice);
+}
+void sthread_dump(){
+  sthread_user_dump();
+}
 
+
+struct _sthread *sthread_schedule(void){
+  sthread_user_schedule();
+}
 
 sthread_mutex_t sthread_mutex_init() {
   sthread_mutex_t lock;

@@ -34,5 +34,3 @@ ifndef GRUPO
 else
 	tar -czf project-$(GRUPO)-$(ALUNO1)-$(ALUNO2)-$(ALUNO3).tgz * 
 endif
-endif
-endif
