@@ -6,7 +6,7 @@
  * Server implementing SNFS services. Current implementation is
  * multi-threaded.
  * 
- * Read the project specification for futher information.
+ * Read the project specification for further information.
  */
 
 #include <sys/types.h>
@@ -306,4 +306,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-

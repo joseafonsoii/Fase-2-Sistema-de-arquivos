@@ -7,7 +7,7 @@ CFLAGS = -g -O0 -Wall -m32 -std=c99
 DEFS = -DHAVE_CONFIG_H -DSIMULATE_IO_DELAY 
 LIBSTHREAD = ../sthread_lib/libsthread.a 
 LIBSOCKS =  -lpthread -lnsl
-OBJECTS = server.o snfs.o fs.o block.o io_delay.o
+OBJECTS = server.o snfs.o fs.o block.o io_delay.o 
 
 
 all: libs $(PROGRAMS)
@@ -16,6 +16,7 @@ all: libs $(PROGRAMS)
 
 server: $(OBJECTS)
 	$(CC) $(CFLAGS) ../sthread_lib/sthread_start.o -o server $(OBJECTS) $(LIBSTHREAD) $(LIBSOCKS)
+
 
 libs:
 	$(MAKE) libsthread.a -C ../sthread_lib

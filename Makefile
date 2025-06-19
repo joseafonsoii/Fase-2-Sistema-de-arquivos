@@ -1,5 +1,5 @@
 
-SUBDIRS = sthread_lib snfs_server snfs_lib 
+SUBDIRS = sthread_lib snfs_server snfs_lib Tests
 
 #
 # Dados sobre o grupo
@@ -7,9 +7,9 @@ SUBDIRS = sthread_lib snfs_server snfs_lib
 # ALUNO1/ALUNO2/ALUNO3 = indicar os nomes dos estudantes (primeiro.último)
 #
 GRUPO=
-ALUNO1=
-ALUNO2=
-ALUNO3=
+ALUNO1=Eclenio Gomes Neto
+ALUNO2=Ima Da Silva Bongue Do Ceu
+ALUNO3=Jose Antono Afonso
 
 
 all: build

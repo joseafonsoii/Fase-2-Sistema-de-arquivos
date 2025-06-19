@@ -49,19 +49,25 @@ int sthread_join(sthread_t thread, void **value_ptr) {
 }
 
 /**********************************************************************/
-/* Synchronization Primitives: Mutexs and Condition Variables         */
+/* Important functions for schedule                                   */
 /**********************************************************************/
-int sthread_nice(int nice){
+void sthread_nice(int nice){
   sthread_user_nice(nice);
 }
+
 void sthread_dump(){
   sthread_user_dump();
 }
 
-
 struct _sthread *sthread_schedule(void){
   sthread_user_schedule();
 }
+
+
+/**********************************************************************/
+/* Synchronization Primitives: Mutexs and Condition Variables         */
+/**********************************************************************/
+
 
 sthread_mutex_t sthread_mutex_init() {
   sthread_mutex_t lock;
