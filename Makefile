@@ -8,8 +8,8 @@ SUBDIRS = sthread_lib snfs_server snfs_lib Tests
 #
 GRUPO=
 ALUNO1=Eclenio Gomes Neto
-ALUNO2=Ima Da Silva Bongue Do Ceu
-ALUNO3=Jose Antono Afonso
+ALUNO2=Ima Do Ceu Bongue Da Silva
+ALUNO3=Jose Antonio Afonso
 
 
 all: build
