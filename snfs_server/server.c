@@ -6,7 +6,7 @@
  * Server implementing SNFS services. Current implementation is
  * multi-threaded.
  * 
- * Read the project specification for further information.
+ * Read the project specification for futher information.
  */
 
 #include <sys/types.h>
@@ -230,9 +230,11 @@ void* thread_consumer() {
 */
 
 void* thread_producer() {
-	req_t req_d;
-	
+	printf("Servidor SNFS iniciado e ouvindo em %s\n", SERVER_SOCK);
+	fflush(stdout);
+	req_t req_d = NULL;  // Inicialize como NULL
 	while(1) {
+		// Dentro do loop while(1) do thread_producer(), após receber a mensagem:
 		// wait for a free buffer slot
 		sthread_monitor_enter(mon); 
                 while (available_reqs == RING_SIZE) sthread_monitor_wait(mon);
@@ -289,7 +291,7 @@ int main(int argc, char **argv)
 
 	// create thread_consumer threads
 	for(i = 0; i < NUM_TC; i++) {
-		threads[i] = sthread_create(thread_consumer, (void*) NULL,2);
+		threads[i] = sthread_create(thread_consumer, (void*) NULL,1);
 		if (threads[i] == NULL) {
 			printf("Error while creating threads. Terminating...\n");
 			exit(-1);
@@ -297,7 +299,7 @@ int main(int argc, char **argv)
 	}
 	
 	// create producer thread
-	aux = sthread_create(thread_producer, (void*) NULL,2);
+	aux = sthread_create(thread_producer, (void*) NULL,1);
 	
 	
 	sthread_join(aux, (void**)NULL);
@@ -306,3 +308,4 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+

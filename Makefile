@@ -6,7 +6,7 @@ SUBDIRS = sthread_lib snfs_server snfs_lib Tests
 # GRUPO = indicar o numero do grupo
 # ALUNO1/ALUNO2/ALUNO3 = indicar os nomes dos estudantes (primeiro.último)
 #
-GRUPO=
+GRUPO=4
 ALUNO1=Eclenio Gomes Neto
 ALUNO2=Ima Do Ceu Bongue Da Silva
 ALUNO3=Jose Antonio Afonso

@@ -1,6 +1,6 @@
 PROGRAMS = client test_snfs_ping \
-		   test_snfs_create_write_read \
-		   test_snfs_mkdir_readdir
+test_snfs_create_write_read test_snfs_mkdir_readdir \
+test_snfs_copy test_snfs_concurrent
 
 INCLUDES = -I . -I ../include -I ../snfs_lib
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(CFLAGS)
@@ -12,14 +12,16 @@ LIBSOCKS = -lpthread -lnsl
 SNFS_LIB_OBJ = ../snfs_lib/snfs_api.o
 COMMON = tfuncs.o
 
-OBJECTS = $(PROGRAMS:=.o)
+OBJECTS = test_snfs_create_write_read.o 
 
-all: libs $(PROGRAMS)
+
+
+all: $(PROGRAMS)
 
 .SUFFIXES: .c .o
 
 client: $(OBJECTS)
-	$(CC) $(CFLAGS) ../sthread_lib/sthread_start.o -o client $(OBJECTS) $(LIBSTHREAD) $(LIBSOCKS)
+	$(CC) $(CFLAGS) ../snfs_lib/snfs_api.o -o client $(OBJECTS) $(LIBSTHREAD) $(LIBSOCKS)
 
 test_snfs_ping: $(OBJECTS)
 	$(CC) $(CFLAGS) ../sthread_lib/sthread_start.o -o test_snfs_ping $(OBJECTS) $(LIBSTHREAD) $(LIBSOCKS)
@@ -32,7 +34,14 @@ test_snfs_create_write_read: $(OBJECTS)
 test_snfs_mkdir_readdir: $(OBJECTS)
 	$(CC) $(CFLAGS) ../sthread_lib/sthread_start.o -o test_snfs_mkdir_readdir $(OBJECTS) $(LIBSTHREAD) $(LIBSOCKS)
 
+test_snfs_concurrent: $(OBJECTS)
+	$(CC) $(CFLAGS) ../sthread_lib/sthread_start.o -o test_snfs_concurrent $(OBJECTS) $(LIBSTHREAD) $(LIBSOCKS)
+
+test_snfs_copy: $(OBJECTS)
+	$(CC) $(CFLAGS) ../sthread_lib/sthread_start.o -o test_snfs_copy $(OBJECTS) $(LIBSTHREAD) $(LIBSOCKS)
+
 libs:
+	$(MAKE) libsnfs.a -C ../snfs_lib
 	$(MAKE) libsthread.a -C ../sthread_lib
 
 .c.o:

@@ -37,7 +37,7 @@ void sthread_user_monitor_signal(sthread_mon_t mon);
 /*New functions to be implemented in the library */
 void sthread_user_dump();
 int sthread_user_nice(int nice);
-struct _sthread *sthread_user_schedule(void);
+void *sthread_user_schedule();
 
 
 #endif /* STHREAD_USER_H */

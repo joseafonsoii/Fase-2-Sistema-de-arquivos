@@ -103,7 +103,7 @@ void sthread_monitor_signal(sthread_mon_t mon);
 /* Signal the monitor's waiters */
 void sthread_monitor_signalall(sthread_mon_t mon);
 
-struct _sthread *sthread_schedule(void);
+void *sthread_schedule();
 
 
 

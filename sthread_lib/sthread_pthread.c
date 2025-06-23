@@ -54,7 +54,7 @@ sthread_t sthread_pthread_create(sthread_start_func_t start_routine, void *arg) 
   sth = (sthread_t)malloc(sizeof(struct _sthread));
 
   err = pthread_create(&(sth->pth), NULL, start_routine, arg);
-
+  printf("%d",err);
   return sth;
 }
 

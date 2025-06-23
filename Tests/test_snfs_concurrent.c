@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
+#include <sthread.h>
+#include <unistd.h>
 #include <snfs_api.h>
 
 #define CLI_SOCKET_BASE "/tmp/client_concurrent_%d.socket"
@@ -68,18 +69,23 @@ void* client_thread(void* arg) {
 }
 
 int main() {
-    pthread_t threads[NUM_THREADS];
-    int tids[NUM_THREADS];
+    //pthread_t threads[NUM_THREADS];
+    //int tids[NUM_THREADS];
+    sthread_init();
 
     for (int i = 0; i < NUM_THREADS; ++i) {
-        tids[i] = i;
-        pthread_create(&threads[i], NULL, client_thread, &tids[i]);
+       // tids[i] = i;
+        int *id = malloc(sizeof(int));
+        *id = i;
+        int prioridade = (i == 0) ? 3 : (i == 1) ? 6 : 10;
+        sthread_create(client_thread,id, prioridade);
     }
 
     for (int i = 0; i < NUM_THREADS; ++i) {
-        pthread_join(threads[i], NULL);
+        sthread_join(&client_thread, NULL);
     }
 
     printf("[Main] Teste de concorrência finalizado.\n");
+    sthread_exit(NULL);
     return 0;
 }

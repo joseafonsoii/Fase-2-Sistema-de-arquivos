@@ -59,7 +59,7 @@ void sthread_dump(){
   sthread_user_dump();
 }
 
-struct _sthread *sthread_schedule(void){
+void *sthread_schedule(){
   sthread_user_schedule();
 }
 

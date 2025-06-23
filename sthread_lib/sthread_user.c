@@ -260,7 +260,7 @@ void sthread_user_dump() {
 }
 
 
-struct _sthread *sthread_user_schedule(void) {
+void *sthread_user_schedule() {
     for (int i = 0; i < MAX_PRIORIDADES; i++) {
         if (active_rq->fila[i].head != NULL) {
             struct _sthread *t = active_rq->fila[i].head;
@@ -269,7 +269,7 @@ struct _sthread *sthread_user_schedule(void) {
             if (active_rq->fila[i].head == NULL)
                 active_rq->fila[i].tail = NULL;
             t->next = NULL;
-            return t;
+            exit(1);
         }
     }
 
@@ -286,12 +286,12 @@ struct _sthread *sthread_user_schedule(void) {
             if (active_rq->fila[i].head == NULL)
                 active_rq->fila[i].tail = NULL;
             t->next = NULL;
-            return t;
+            exit(1) ;
         }
     }
 
     // Se ainda não há nenhuma thread, retorna NULL
-    return NULL;
+   
 }
 
 
